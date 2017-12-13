@@ -49,23 +49,21 @@ export class ResourcesViewComponent implements OnInit {
 
   getResource(id: string, nationname: string) {
     if (nationname !== null) {
-      return this.couchService.get('nations/_all_docs?include_docs=true')
-        .then((data) => {
-           data.rows.map(function(nt){
-            if (nt.doc.name === this.route.snapshot.paramMap.get('nationname')) {
-              const nationUrl = nt.doc.nationurl;
-              if (nationUrl) {
-                this.jsonp.request('http://' + nationUrl + '/resources/' + id + '?include_docs=true&callback=JSONP_CALLBACK')
-                .subscribe(res => {
-                  const filename = res._body.openWhichFile || Object.keys(res._body._attachments)[0];
-                  this.mediaType = 'other';
-                  this.contentType = res._body._attachments[filename].content_type;
-                  this.resourceSrc = 'http://' + nationUrl + '/resources/' + id + '/' + filename;
-                  return res._body;
-                });
-              }
-            }
-          }, this);
+      return this.couchService.post(`nations/_find`,
+      { 'selector': { 'name':  this.route.snapshot.paramMap.get('nationname') },
+      'fields': [ 'name', 'nationurl' ] })
+        .then(data => {
+          const nationUrl = data.docs[0].nationurl;
+          if (nationUrl) {
+            this.jsonp.request('http://' + nationUrl + '/resources/' + id + '?include_docs=true&callback=JSONP_CALLBACK')
+            .subscribe(res => {
+              const filename = res['_body'].openWhichFile || Object.keys(res['_body']._attachments)[0];
+              this.mediaType = 'other';
+              this.contentType = res['_body']._attachments[filename].content_type;
+              this.resourceSrc = 'http://' + nationUrl + '/resources/' + id + '/' + filename;
+              return res['_body'];
+            });
+          }
         }, (error) => console.log('Error'));
     } else {
       return this.couchService.get('resources/' + id)

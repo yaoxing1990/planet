@@ -35,40 +35,32 @@ export class ResourcesComponent implements OnInit {
 
   ngOnInit() {
     this.getResources();
-    this.getNationResources();
     // Temp fields to fill in for male and female rating
     this.fRating = Math.floor(Math.random() * 101);
     this.mRating = 100 - this.fRating;
   }
 
   getResources() {
-    this.couchService
-      .get('resources/_all_docs?include_docs=true')
-      .then(data => {
-        this.resources = data.rows;
-      }, error => (this.message = 'Error'));
-  }
-
-  getNationResources() {
     if (this.route.snapshot.paramMap.get('nationname') !== null) {
-      this.couchService.get('nations/_all_docs?include_docs=true')
-      .then((data) => {
-         data.rows.map(function(nt){
-          if (nt.doc.name === this.route.snapshot.paramMap.get('nationname')) {
-            this.nationname = this.route.snapshot.paramMap.get('nationname');
-            const nationUrl = nt.doc.nationurl;
-            if (nationUrl) {
-              this.jsonp.request('http://' + nationUrl + '/resources/_all_docs?include_docs=true&callback=JSONP_CALLBACK&limit=5')
-              .subscribe(res => {
-                this.resources = [];
-                this.resources = res.json().rows.length > 0 ? res.json().rows : [];
-              });
-            } else {
-              this.message = 'There is no data.';
-            }
+      this.couchService.post(`nations/_find`,
+      { 'selector': { 'name':  this.route.snapshot.paramMap.get('nationname') },
+      'fields': [ 'name', 'nationurl' ] })
+        .then(data => {
+          this.nationname = this.route.snapshot.paramMap.get('nationname');
+          const nationUrl = data.docs[0].nationurl;
+          if (nationUrl) {
+            this.jsonp.request('http://' + nationUrl + '/resources/_all_docs?include_docs=true&callback=JSONP_CALLBACK&limit=5')
+            .subscribe(res => {
+              this.resources = res.json().rows.length > 0 ? res.json().rows : [];
+            });
           }
-        }, this);
-      }, (error) => this.message = 'There was a problem getting NationList');
+        }, error => (this.message = 'Error'));
+    } else {
+      this.couchService
+        .get('resources/_all_docs?include_docs=true')
+        .then(data => {
+          this.resources = data.rows;
+        }, error => (this.message = 'Error'));
     }
   }
 

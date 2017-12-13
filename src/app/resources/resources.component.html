@@ -1,6 +1,11 @@
 <!-- FOR DEMO ONLY -->
 <!-- use the async pipe when fetching for database -->
-<button mat-raised-button routerLink="add" color="primary" routerLinkActive="active" i18n>Add Resource</button>
+<div *ngIf="nationname === ''; else nationName" class="list-item-action">
+  <button mat-raised-button routerLink="add" color="primary" routerLinkActive="active" i18n>Add Resource</button>
+</div>
+<ng-template #nationName>
+  <h1 i18n>{{nationname}} Resources</h1>
+</ng-template>
 <ng-template ngFor let-item [ngForOf]="resources">
   <!-- Used ng-template insted of spans or divs because I did not want any to add any element -->
   <div class="list-item">
@@ -17,15 +22,15 @@
           <ng-template ngFor let-col [ngForOf]="item.doc.collection">{{ col }} / </ng-template>
         </ng-template>
       </div>
-      <div *ngIf="nationname == ''" class="list-item-action">
+      <div *ngIf="nationname === ''; else nationName" class="list-item-action">
         <a mat-raised-button i18n [routerLink]="['/resources/view', item.doc._id]">View Details</a>
         <a mat-raised-button i18n [routerLink]="['/resources/wip']">Add To Library</a>
         <a mat-raised-button i18n [routerLink]="['/resources/wip']">Feedback</a>
         <a mat-raised-button i18n [routerLink]="['/resources/wip']">Delete</a>
       </div>
-      <div *ngIf="nationname" class="list-item-action">
-        <a mat-raised-button i18n [routerLink]="['/resources/view/', nationname, item.doc._id]">View Details</a>
-      </div>
+      <ng-template #nationName>
+        <div class="list-item-action"><a mat-raised-button i18n [routerLink]="['/resources/view/', nationname, item.doc._id]">View Details</a></div>
+      </ng-template>
     </div>
     <div class="list-item-rating">
       <span class="stars">
