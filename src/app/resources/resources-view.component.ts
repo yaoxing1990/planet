@@ -6,6 +6,7 @@ import { ActivatedRoute, ParamMap } from '@angular/router';
 import { DomSanitizer } from '@angular/platform-browser';
 import { Router } from '@angular/router';
 import { environment } from '../../environments/environment';
+import { Jsonp, Response } from '@angular/http';
 
 @Component({
   template: `
@@ -30,7 +31,8 @@ export class ResourcesViewComponent implements OnInit {
     private couchService: CouchService,
     private route: ActivatedRoute,
     private sanitizer: DomSanitizer,
-    private router: Router
+    private router: Router,
+    private jsonp: Jsonp
   ) { }
 
   resource = {};
@@ -41,27 +43,48 @@ export class ResourcesViewComponent implements OnInit {
   urlPrefix = environment.couchAddress + 'resources/';
 
   ngOnInit() {
-    this.route.paramMap.pipe(switchMap((params: ParamMap) => this.getResource(params.get('id'))))
-      .subscribe(resource => this.resource = resource);
+    this.route.paramMap.pipe(switchMap((params: ParamMap) => this.getResource(params.get('id'), params.get('nationname'))))
+      .subscribe(resource => this.resource = resource );
   }
 
-  getResource(id: string) {
-    return this.couchService.get('resources/' + id)
-      .then((data) => {
-        // openWhichFile is used to label which file to start with for HTML resources
-        const filename = data.openWhichFile || Object.keys(data._attachments)[0];
-        this.mediaType = data.mediaType;
-        this.contentType = data._attachments[filename].content_type;
-        this.resourceSrc = this.urlPrefix + data._id + '/' + filename;
-        if (this.mediaType === 'pdf') {
-          this.pdfSrc = this.sanitizer.bypassSecurityTrustResourceUrl(this.resourceSrc);
-        }
-        if (this.mediaType === 'zip') {
-          this.router.navigate([ '/resources' ]);
-          window.open(this.resourceSrc);
-        }
-        return data;
-      }, (error) => console.log('Error'));
+  getResource(id: string, nationname: string) {
+    if (nationname !== null) {
+      return this.couchService.get('nations/_all_docs?include_docs=true')
+        .then((data) => {
+           data.rows.map(function(nt){
+            if (nt.doc.name === this.route.snapshot.paramMap.get('nationname')) {
+              const nationUrl = nt.doc.nationurl;
+              if (nationUrl) {
+                this.jsonp.request('http://' + nationUrl + '/resources/' + id + '?include_docs=true&callback=JSONP_CALLBACK')
+                .subscribe(res => {
+                  const filename = res._body.openWhichFile || Object.keys(res._body._attachments)[0];
+                  this.mediaType = 'other';
+                  this.contentType = res._body._attachments[filename].content_type;
+                  this.resourceSrc = 'http://' + nationUrl + '/resources/' + id + '/' + filename;
+                  return res._body;
+                });
+              }
+            }
+          }, this);
+        }, (error) => console.log('Error'));
+    } else {
+      return this.couchService.get('resources/' + id)
+        .then((data) => {
+          // openWhichFile is used to label which file to start with for HTML resources
+          const filename = data.openWhichFile || Object.keys(data._attachments)[0];
+          this.mediaType = data.mediaType;
+          this.contentType = data._attachments[filename].content_type;
+          this.resourceSrc = this.urlPrefix + data._id + '/' + filename;
+          if (this.mediaType === 'pdf') {
+            this.pdfSrc = this.sanitizer.bypassSecurityTrustResourceUrl(this.resourceSrc);
+          }
+          if (this.mediaType === 'HTML') {
+            this.router.navigate([ '/resources' ]);
+            window.open(this.resourceSrc);
+          }
+          return data;
+        }, (error) => console.log('Error'));
+    }
   }
 
 }
